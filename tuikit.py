@@ -77,15 +77,23 @@ class UI:
             self.label = label
             self.elements: list[UI._Page._Element] = []
 
-        def add_element(self, name, command=None) -> '_Element':
-            element = self._Element(name, command)
+        def add_element(self, name, command=None, params: list = None) -> '_Element':
+            element = self._Element(name, command, params)
             self.elements.append(element)
             return element
 
         class _Element:
             def __call__(self):
-                self.command()
+                if self.command.__code__.co_argcount > 0:
+                    if not self.params:
+                        raise ValueError(
+                            f"Missing required arguments: {", ".join(self.command.__code__.co_varnames)} in function '{self.command.__code__.co_name}'")
+                    print(*self.params)
+                    self.command(*self.params)
+                else:
+                    self.command()
 
-            def __init__(self, label, command):
+            def __init__(self, label, command, params: list):
                 self.label = label
                 self.command: callable = command
+                self.params = params
