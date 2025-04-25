@@ -23,6 +23,11 @@ class UI:
         for idx, element in enumerate(page.elements):
             print(f"{idx+1:2}: {element.label}")
 
+    def set_page(self, page: '_Page'):
+        if page in self.pages:
+            self.current_page = page
+            self.current_page_index = self.pages.index(page)
+
     def switch_page_to_index(self, idx: int):
         if idx < len(self.pages) and idx >= 0:
             self.current_page = self.pages[idx]
