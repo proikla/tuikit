@@ -79,7 +79,7 @@ else:
 
 class UI:
 
-    def __init__(self, name='Untitled UI', show_name=True, show_current_page=True, show_current_page_name=True):
+    def __init__(self, name: str = 'Untitled UI', show_name: bool = True, show_current_page: bool = True, show_current_page_name: bool = True):
         self.pages: list[UI._Page] = []
         self.current_page: UI._Page = None
         self.name: str = name
@@ -191,7 +191,7 @@ class UI:
             self.label = label
             self.elements: list[UI._Page._Element] = []
 
-        def add_element(self, name, command=None, params=None, color=0) -> '_Element':
+        def add_element(self, name: str, command=None, params=None, color=0) -> '_Element':
             element = self._Element(name, command, params, color)
             self.elements.append(element)
             return element
@@ -216,7 +216,7 @@ class UI:
                     self.command(*self.params)
 
             def __init__(self, label, command, params, color=0):
-                self.label = label
-                self.command: callable = command
-                self.params = params
-                self.color = color
+                self.label: str = label
+                self.command: function = command
+                self.params: tuple | any = params
+                self.color: int = color
