@@ -237,10 +237,8 @@ class UI:
 
             usr = self.ask_input()
 
-            if usr and usr >= 0:
-                if self.current_page.elements[usr-1].command:
-                    self.current_page.elements[usr-1]()
-                    skip = False
+            if usr and usr >= 0 and self.current_page.elements[usr-1].command:
+                skip = False
 
                 if stop and not skip:
                     input()
@@ -289,5 +287,5 @@ class UI:
             def __init__(self, label, command, params, color=0):
                 self.label: str = label
                 self.command: function = command
-                self.params: tuple | any = params
+                self.params: tuple = params
                 self.color: int = color
