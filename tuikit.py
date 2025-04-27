@@ -1,5 +1,6 @@
 from enum import IntEnum
 import os
+from typing import Iterable, Union
 
 
 class Style(IntEnum):
@@ -41,10 +42,70 @@ class Style(IntEnum):
     TURQUOISE = 96
     WHITE_BRIGHT = 97
 
+    def __or__(self, other: "Style|CombinedStyle") -> "CombinedStyle":
+        # Style.X | Style.Y or Style.X | CombinedStyle(...)
+        if isinstance(other, Style):
+            return CombinedStyle({self, other})
+        if isinstance(other, CombinedStyle):
+            return CombinedStyle({self, *other._styles})
+        return NotImplemented
 
-def color(color: int = 0) -> str:
-    '''Returns \033[0;{color}m '''
-    return f'\033[0;{color}m'
+    def __ror__(self, other: "CombinedStyle") -> "CombinedStyle":
+        # CombinedStyle | Style
+        if isinstance(other, CombinedStyle):
+            return CombinedStyle({*other._styles, self})
+        return NotImplemented
+
+
+class CombinedStyle:
+    """Helper to hold a set of Style members."""
+    __slots__ = ("_styles",)
+
+    def __init__(self, styles: Iterable[Style]):
+        # drop duplicates automatically via a frozenset
+        self._styles = frozenset(styles)
+
+    def __or__(self, other: Style) -> "CombinedStyle":
+        if not isinstance(other, Style):
+            return NotImplemented
+        return CombinedStyle({*self._styles, other})
+
+    def __iter__(self):
+        return iter(self._styles)
+
+
+def color(style: Union[Style, CombinedStyle] = None) -> str:
+    """
+    Get ANSI escape sequences according to the given style(s).
+
+    Parameters
+    ----------
+    style : Style or tuple of Style
+        One or more `Style` enum members (e.g. `Style.RED`, or `Style.BOLD | Style.UNDERLINE`)
+        specifying ANSI codes to apply. Use `Style.REGULAR` (or no style) to return the unmodified text.
+
+    Returns
+    -------
+    str
+        The original `text` wrapped in the appropriate ANSI escape codes, e.g.
+        `"\033[31;1mHello\033[0m"` for `Style.RED | Style.BOLD`.
+
+    Example
+    --------
+    >>> color(Style.YELLOW | Style.BOLD)
+    '\\033[33;1m\\033[0m'
+    >>> color()
+    '\\033[0m'
+    """
+    if not style:
+        return "\033[0m"
+
+    if isinstance(style, Style):
+        codes = [] if style is Style.REGULAR else [str(style.value)]
+    else:  # CombinedStyle
+        codes = [str(s.value) for s in style if s is not Style.REGULAR]
+
+    return f"\033[{';'.join(codes)}m"
 
 
 def cls():
@@ -79,7 +140,7 @@ else:
 
 class UI:
 
-    def __init__(self, name: str = 'Untitled UI', change_page_on_keypress: bool = True, show_name: bool = True, show_current_page: bool = True, show_current_page_name: bool = True, header: str | None = None):
+    def __init__(self, name: str = 'Untitled UI', header: str | None = None, show_name: bool = True, show_current_page: bool = True, show_current_page_name: bool = True):
         self.pages: list[UI._Page] = []
         self.current_page: UI._Page = None
         self.name: str = name
@@ -95,12 +156,10 @@ class UI:
             self.header: str = self.make_header()
             self.has_custom_header = False
 
-        self.change_page_on_keypress: bool = change_page_on_keypress
-
     def make_header(self) -> str:
         """
         Returns menu header.
-        Header looks like this:
+        e.g.:
 
         P: CURRENT_PAGE_NAME
         menu_name 4/4
@@ -135,14 +194,14 @@ class UI:
             self.current_page = self.pages[idx]
             self.current_page_index = idx
 
-    def ask_input(self) -> int | None:
+    def ask_input(self, change_page_on_keypress=True) -> int | None:
         """
         Prompts number input, return it. \n
         If 'a' or 'd' key is pressed, switch page to left or right accordingly, return -1. \n
         """
         print('>>> ', end='', flush=True)
 
-        key = get_keypress() if self.change_page_on_keypress else ''
+        key = get_keypress() if change_page_on_keypress else ''
 
         if key in ['\r', '\x08']:
             return None
