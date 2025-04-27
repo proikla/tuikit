@@ -85,20 +85,23 @@ class UI:
         self.name: str = name
         self.current_page_index: int = 0
 
-        self.show_name = show_name
-        self.show_current_page_idx = show_current_page
-        self.show_current_page_name = show_current_page_name
+        self.do_show_name: bool = show_name
+        self.do_show_current_page_idx: bool = show_current_page
+        self.do_show_current_page_name: bool = show_current_page_name
         self.header: str = self.update_header()
 
     def update_header(self) -> str:
         self.header = f"{
-            self.name if self.show_name else ""} {
-            f'{self.current_page_index+1}/{len(self.pages) if self.pages else 1}' if self.show_current_page_idx else ""} {
-            "Page: " + self.current_page.label if self.show_current_page_name and self.current_page else ""}"
+            self.name if self.do_show_name else ""} {
+            f'{self.current_page_index+1}/{len(self.pages) if self.pages else 1}' if self.do_show_current_page_idx else ""} {
+            "" + self.current_page.label if self.do_show_current_page_name and self.current_page else ""}"
         return self.header
 
-    def render(self, page: '_Page'):
+    def render(self, page: '_Page' = None):
         '''print all elements in the provided page'''
+        if not page:
+            page = self.current_page
+
         print(self.update_header(), flush=True)
         for idx, element in enumerate(page.elements):
             print(
@@ -110,11 +113,15 @@ class UI:
             self.current_page_index = self.pages.index(page)
 
     def set_page_to_index(self, idx: int) -> None:
-        if idx < len(self.pages) and idx >= 0:
+        if idx < len(self.pages) and idx >= 0 and self.current_page_index != idx:
             self.current_page = self.pages[idx]
             self.current_page_index = idx
 
     def ask_input(self) -> int:
+        """
+        Prompts number input, return it. \n
+        If 'a' or 'd' key is pressed, switch page to left or right accordingly, return -1. \n
+        """
         print('>>> ', end='', flush=True)
 
         key = get_keypress()
@@ -161,7 +168,6 @@ class UI:
                 if stop and not skip:
                     input()
 
-            # Todo: use \r instead
             cls()
 
     def add_page(self, label: str = f'Untitled page') -> '_Page':
