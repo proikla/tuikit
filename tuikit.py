@@ -79,7 +79,7 @@ else:
 
 class UI:
 
-    def __init__(self, name: str = 'Untitled UI', show_name: bool = True, show_current_page: bool = True, show_current_page_name: bool = True, header: str | None = None):
+    def __init__(self, name: str = 'Untitled UI', change_page_on_keypress: bool = True, show_name: bool = True, show_current_page: bool = True, show_current_page_name: bool = True, header: str | None = None):
         self.pages: list[UI._Page] = []
         self.current_page: UI._Page = None
         self.name: str = name
@@ -94,6 +94,8 @@ class UI:
         else:
             self.header: str = self.make_header()
             self.has_custom_header = False
+
+        self.change_page_on_keypress: bool = change_page_on_keypress
 
     def make_header(self) -> str:
         """
@@ -133,24 +135,24 @@ class UI:
             self.current_page = self.pages[idx]
             self.current_page_index = idx
 
-    def ask_input(self) -> int:
+    def ask_input(self) -> int | None:
         """
         Prompts number input, return it. \n
         If 'a' or 'd' key is pressed, switch page to left or right accordingly, return -1. \n
         """
         print('>>> ', end='', flush=True)
 
-        key = get_keypress()
+        key = get_keypress() if self.change_page_on_keypress else ''
 
         if key in ['\r', '\x08']:
-            return -1
+            return None
 
         if key == 'd':
             self.set_page_to_index(self.current_page_index+1)
-            return -1
+            return None
         if key == 'a':
             self.set_page_to_index(self.current_page_index-1)
-            return -1
+            return None
 
         print(key, end='', flush=True)
         user_input = key + input()
@@ -162,7 +164,7 @@ class UI:
                 self.current_page.elements[index]()
 
             return user_input
-        return -1
+        return None
 
     def loop(self, stop: bool = False) -> None:
         if not self.pages:
