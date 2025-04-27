@@ -1,5 +1,4 @@
 import os
-import platform
 
 REGULAR = 0
 BOLD = 1
@@ -10,7 +9,7 @@ FLASHING = 5
 STRIKETHROUGH = 9
 DOUBLE_UNDERSCORE_INTERSECT = 21
 UNDERSCORE = 53
-SELECTED = 7
+INVERTED = 7
 
 BLACK = 30
 RED = 31
@@ -40,33 +39,68 @@ WHITE_BRIGHT = 97
 
 
 def color(color: int = 0) -> str:
-    '''Returns \033[0;{mode}m '''
+    '''Returns \033[0;{color}m '''
     return f'\033[0;{color}m'
 
 
 def cls():
     '''clears console depending on the platform'''
-    if platform.system() == "Windows":
+    if os.name == "nt":
         os.system("cls")
     else:
         os.system("clear")
 
 
+# cross platfrom way to get keypress
+if os.name == 'nt':
+    import msvcrt
+
+    def get_keypress():
+        return msvcrt.getch().decode('utf-8')
+else:
+    import sys
+    import termios
+    import tty
+
+    def get_keypress():
+        fd = sys.stdin.fileno()
+        old_settings = termios.tcgetattr(fd)
+        try:
+            tty.setraw(fd)
+            ch = sys.stdin.read(1)
+        finally:
+            termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+        return ch
+
+
 class UI:
 
-    def __init__(self, name='Untitled UI'):
+    def __init__(self, name='Untitled UI', show_name=True, show_current_page=True, show_current_page_name=True):
         self.pages: list[UI._Page] = []
         self.current_page: UI._Page = None
         self.name: str = name
         self.current_page_index: int = 0
 
+        self.show_name = show_name
+        self.show_current_page_idx = show_current_page
+        self.show_current_page_name = show_current_page_name
+        self.header: str = self.update_header()
+
+    def update_header(self) -> str:
+        self.header = f"{
+            self.name if self.show_name else ""} {
+            f'{self.current_page_index+1}/{len(self.pages) if self.pages else 1}' if self.show_current_page_idx else ""} {
+            "Page: " + self.current_page.label if self.show_current_page_name and self.current_page else ""}"
+        return self.header
+
     def render(self, page: '_Page'):
         '''print all elements in the provided page'''
+        print(self.update_header(), flush=True)
         for idx, element in enumerate(page.elements):
             print(
-                f"{color(element.color)}{idx+1:2}: {element.label} {color()}")
+                f"{color(element.color)}{idx+1:2}: {element.label} {color()}", flush=True)
 
-    def set_page(self, page: '_Page'):
+    def set_page(self, page: '_Page') -> None:
         if page in self.pages:
             self.current_page = page
             self.current_page_index = self.pages.index(page)
@@ -76,7 +110,31 @@ class UI:
             self.current_page = self.pages[idx]
             self.current_page_index = idx
 
-    def loop(self, stop: bool = False):
+    def ask_input(self) -> int:
+        print('>>> ', end='', flush=True)
+
+        key = get_keypress()
+
+        if key == 'd':
+            self.set_page_to_index(self.current_page_index+1)
+            return -1
+        if key == 'a':
+            self.set_page_to_index(self.current_page_index-1)
+            return -1
+
+        print(key, end='', flush=True)
+        user_input = key + input()
+
+        if user_input.isnumeric() and int(user_input) <= len(self.current_page.elements):
+            user_input = int(user_input)
+            index = user_input-1
+            if self.current_page.elements[index].command:
+                self.current_page.elements[index]()
+
+            return user_input
+        return -1
+
+    def loop(self, stop: bool = False) -> None:
         if not self.pages:
             self.current_page = self.add_page()
 
@@ -86,22 +144,15 @@ class UI:
 
             self.render(self.current_page)
 
-            user_input = input("Input: ")
+            usr = self.ask_input()
 
-            if user_input.lower() == 'd':
-                self.set_page_to_index(self.current_page_index+1)
-            if user_input.lower() == 'a':
-                self.set_page_to_index(self.current_page_index-1)
-
-            if user_input.isnumeric() and int(user_input) <= len(self.current_page.elements):
-                user_input = int(user_input)
-                index = user_input-1
-                if self.current_page.elements[index].command:
-                    self.current_page.elements[index]()
+            if usr >= 0:
+                if self.current_page.elements[usr-1].command:
+                    self.current_page.elements[usr-1]()
                     skip = False
 
-            if stop and not skip:
-                input()
+                if stop and not skip:
+                    input()
 
             # Todo: use \r instead
             cls()
@@ -121,13 +172,13 @@ class UI:
             self.label = label
             self.elements: list[UI._Page._Element] = []
 
-        def add_element(self, name, command=None, params: list = None, color=0) -> '_Element':
+        def add_element(self, name, command=None, params=None, color=0) -> '_Element':
             element = self._Element(name, command, params, color)
             self.elements.append(element)
             return element
 
         class _Element:
-            def __call__(self):
+            def __call__(self) -> None:
                 #  determine argcount.
                 argcount = self.command.__code__.co_argcount
                 # fix
