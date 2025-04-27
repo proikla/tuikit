@@ -237,7 +237,7 @@ class UI:
 
             usr = self.ask_input()
 
-            if usr >= 0:
+            if usr and usr >= 0:
                 if self.current_page.elements[usr-1].command:
                     self.current_page.elements[usr-1]()
                     skip = False
