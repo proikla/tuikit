@@ -79,7 +79,7 @@ else:
 
 class UI:
 
-    def __init__(self, name: str = 'Untitled UI', show_name: bool = True, show_current_page: bool = True, show_current_page_name: bool = True):
+    def __init__(self, name: str = 'Untitled UI', show_name: bool = True, show_current_page: bool = True, show_current_page_name: bool = True, header: str | None = None):
         self.pages: list[UI._Page] = []
         self.current_page: UI._Page = None
         self.name: str = name
@@ -88,9 +88,14 @@ class UI:
         self.do_show_name: bool = show_name
         self.do_show_current_page_idx: bool = show_current_page
         self.do_show_current_page_name: bool = show_current_page_name
-        self.header: str = self.update_header()
+        if header:
+            self.header = header
+            self.has_custom_header = True
+        else:
+            self.header: str = self.make_header()
+            self.has_custom_header = False
 
-    def update_header(self) -> str:
+    def make_header(self) -> str:
         """
         Returns menu header.
         Header looks like this:
@@ -108,7 +113,12 @@ class UI:
         if not page:
             page = self.current_page
 
-        print(self.update_header(), flush=True)
+        if self.has_custom_header:
+            header = self.header
+        else:
+            header = self.make_header()
+
+        print(header, flush=True)
         for idx, element in enumerate(page.elements):
             print(
                 f"{color(element.color)}{idx+1:2}: {element.label} {color()}", flush=True)
