@@ -1,41 +1,45 @@
+from enum import IntEnum
 import os
 
-REGULAR = 0
-BOLD = 1
-DIMMED = 2
-ITALIC = 3
-UNDERSCORE_INTERSECT = 4
-FLASHING = 5
-STRIKETHROUGH = 9
-DOUBLE_UNDERSCORE_INTERSECT = 21
-UNDERSCORE = 53
-INVERTED = 7
 
-BLACK = 30
-RED = 31
-GREEN = 32
-YELLOW = 33
-BLUE = 34
-PURPLE = 35
-LIGHTBLUE = 36
+class Style(IntEnum):
+    """Styles to use with color()"""
+    REGULAR = 0
+    BOLD = 1
+    DIMMED = 2
+    ITALIC = 3
+    UNDERSCORE_INTERSECT = 4
+    FLASHING = 5
+    STRIKETHROUGH = 9
+    DOUBLE_UNDERSCORE_INTERSECT = 21
+    UNDERSCORE = 53
+    INVERTED = 7
 
-BG_GRAY = 100
-BG_RED = 101
-BG_GREEN = 102
-BG_YELLOW = 103
-BG_CYAN = 104
-BG_PURPLE = 105
-BG_TURQUOISE = 106
-BG_WHITE = 107
+    BLACK = 30
+    RED = 31
+    GREEN = 32
+    YELLOW = 33
+    BLUE = 34
+    PURPLE = 35
+    LIGHTBLUE = 36
 
-GRAY_BRIGHT = 90
-RED_BRIGHT = 91
-GREEN_BRIGHT = 92
-YELLOW_BRIGHT = 93
-BLUE_BRIGHT = 94
-PURPLE_BRIGHT = 95
-TURQUOISE = 96
-WHITE_BRIGHT = 97
+    BG_GRAY = 100
+    BG_RED = 101
+    BG_GREEN = 102
+    BG_YELLOW = 103
+    BG_CYAN = 104
+    BG_PURPLE = 105
+    BG_TURQUOISE = 106
+    BG_WHITE = 107
+
+    GRAY_BRIGHT = 90
+    RED_BRIGHT = 91
+    GREEN_BRIGHT = 92
+    YELLOW_BRIGHT = 93
+    BLUE_BRIGHT = 94
+    PURPLE_BRIGHT = 95
+    TURQUOISE = 96
+    WHITE_BRIGHT = 97
 
 
 def color(color: int = 0) -> str:
@@ -114,6 +118,9 @@ class UI:
         print('>>> ', end='', flush=True)
 
         key = get_keypress()
+
+        if key in ['\r', '\x08']:
+            return -1
 
         if key == 'd':
             self.set_page_to_index(self.current_page_index+1)
