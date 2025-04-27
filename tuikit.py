@@ -91,10 +91,16 @@ class UI:
         self.header: str = self.update_header()
 
     def update_header(self) -> str:
-        self.header = f"{
-            self.name if self.do_show_name else ""} {
-            f'{self.current_page_index+1}/{len(self.pages) if self.pages else 1}' if self.do_show_current_page_idx else ""} {
-            "" + self.current_page.label if self.do_show_current_page_name and self.current_page else ""}"
+        """
+        Returns menu header.
+        Header looks like this:
+
+        P: CURRENT_PAGE_NAME
+        menu_name 4/4
+        ...
+
+        """
+        self.header = f" P: {self.current_page.label + '\n' if self.current_page and self.do_show_current_page_name else ''} {self.name + ' ' if self.do_show_name else ''}{self.current_page_index + 1 if self.do_show_current_page_idx else ''}/{len(self.pages)}\n"
         return self.header
 
     def render(self, page: '_Page' = None):
