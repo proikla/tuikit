@@ -223,24 +223,24 @@ class UI:
             self._current_page_index = idx
             self._current_page = self.pages[idx]
 
-    def ask_input(self, change_page_on_keypress=True) -> int | None:
+    def ask_input(self, change_page_on_keypress=True, cursor='>>>') -> int:
         """
         Prompts number input, return it. \n
         If 'a' or 'd' key is pressed, switch page to left or right accordingly, return -1. \n
         """
-        print('>>> ', end='', flush=True)
+        print(cursor, end='', flush=True)
 
         key = get_keypress() if change_page_on_keypress else ''
 
         if key in ['\r', '\x08']:
-            return None
+            return -1
 
         if key == 'd':
             self.current_page_index += 1
-            return None
+            return -1
         if key == 'a':
             self.current_page_index -= 1
-            return None
+            return -1
 
         print(key, end='', flush=True)
         user_input = key + input()
@@ -252,7 +252,7 @@ class UI:
                 self.current_page.elements[index]()
 
             return user_input
-        return None
+        return -1
 
     def loop(self, stop: bool = False) -> None:
         if not self.pages:
@@ -266,7 +266,7 @@ class UI:
 
             usr = self.ask_input()
 
-            if usr and usr >= 0 and self.current_page.elements[usr-1].command:
+            if usr >= 0 and self.current_page.elements[usr-1].command:
                 skip = False
 
                 if stop and not skip:
