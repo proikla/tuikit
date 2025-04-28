@@ -142,19 +142,20 @@ class UI:
 
     def __init__(self, name: str = 'Untitled UI', header: str | None = None, show_name: bool = True, show_current_page: bool = True, show_current_page_name: bool = True):
         self.pages: list[UI._Page] = []
-        self.current_page: UI._Page = None
         self.name: str = name
-        self.current_page_index: int = 0
+        self._current_page = None
+        self._current_page_index = -1
 
         self.do_show_name: bool = show_name
         self.do_show_current_page_idx: bool = show_current_page
         self.do_show_current_page_name: bool = show_current_page_name
+
         if header:
             self.header = header
-            self.has_custom_header = True
+            self._has_custom_header = True
         else:
             self.header: str = self.make_header()
-            self.has_custom_header = False
+            self._has_custom_header = False
 
     def make_header(self) -> str:
         """
@@ -174,7 +175,7 @@ class UI:
         if not page:
             page = self.current_page
 
-        if self.has_custom_header:
+        if self._has_custom_header:
             header = self.header
         else:
             header = self.make_header()
@@ -184,15 +185,25 @@ class UI:
             print(
                 f"{color(element.color)}{idx+1:2}: {element.label} {color()}", flush=True)
 
-    def set_page(self, page: '_Page') -> None:
-        if page in self.pages:
-            self.current_page = page
-            self.current_page_index = self.pages.index(page)
+    @property
+    def current_page(self):
+        return self._current_page
 
-    def set_page_to_index(self, idx: int) -> None:
-        if idx < len(self.pages) and idx >= 0 and self.current_page_index != idx:
-            self.current_page = self.pages[idx]
-            self.current_page_index = idx
+    @current_page.setter
+    def current_page(self, page: '_Page'):
+        if page in self.pages:
+            self._current_page = page
+            self._current_page_index = self.pages.index(page)
+
+    @property
+    def current_page_index(self):
+        return self._current_page_index
+
+    @current_page_index.setter
+    def current_page_index(self, idx: int):
+        if 0 <= idx < len(self.pages):
+            self._current_page_index = idx
+            self._current_page = self.pages[idx]
 
     def ask_input(self, change_page_on_keypress=True) -> int | None:
         """
@@ -207,10 +218,10 @@ class UI:
             return None
 
         if key == 'd':
-            self.set_page_to_index(self.current_page_index+1)
+            self.current_page_index += 1
             return None
         if key == 'a':
-            self.set_page_to_index(self.current_page_index-1)
+            self.current_page_index -= 1
             return None
 
         print(key, end='', flush=True)
