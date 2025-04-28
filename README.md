@@ -1,111 +1,124 @@
 # Tuikit
-A terminal UI solution for building user-friendly interactive interfaces with ease.
+**Tuikit** is a user-friendly python library for building interactive terminal menus with ease.
 
-## Example usage
-### Add Elements and Pages
-```
-ui = tuikit.UI()
-page1 = ui.add_page()
-page1.add_element('Banana')
-page1.add_element('Apple')
-page1.add_element('Orange')
-page2.add_element('Bread')
-page2.add_element('Milk')
-ui.loop()
-```
-This will output:
-```
- P: Untitled page
- Untitled UI 1/2
+## Features
+- Page navigation (A / D keys)
+- Selectable elements
+- Styled elements with `tuikit.Style`
+- Command binding with arguments
+- Full control over the event loop
 
- 1: Banana
- 2: Apple
- 3: Orange
->>> 
- ```
-You can switch pages by pressing **A** or **D** on your keyboard.
+## Installation
+**Tuikit** is fully usable, but it is not yet available for installation via `pip`. You can still use it by downloading the source code directly from this repository.
 
-### Make Elements Do Something
-Suppose you have a `hello` function:
+
+## Quick start
+### Create a simple menu
+Elements can be chained easily:
+``` python
+import tuikit
+menu = tuikit.UI()
+menu.add_element("Hello").add_element("World")
+menu.loop()
 ```
+#### Output:
+``` 
+P: Untitled page
+Untitled UI 1/1 
+1: Hello 
+2: World 
+>>>    
+```   
+
+### Multiple pages
+``` python
+from tuikit import UI
+
+menu = UI()
+fruits = menu.add_page('Fruits')
+fruits.add_element('Banana')
+fruits.add_element('Apple')
+fruits.add_element('Orange')
+
+groceries = menu.add_page('Groceries')
+groceries.add_element('Bread')
+groceries.add_element('Milk')
+
+# append an element to the last page
+menu.add_element('Cheese')
+
+menu.loop()
+```
+#### Output:
+``` 
+P: Fruits      
+Untitled UI 1/2
+1: Banana 
+2: Apple  
+3: Orange 
+>>>        
+```
+Press A and D to navigate between pages.
+
+## Adding Actions
+You can bind a function to an element:
+
+``` python
 def hello():
     print("Hi there.")
-```
-You can bind it to an element.
-```
-ui = tuikit.UI()
-page = ui.add_page()
-page.add_element('say hello!', command=hello)
-ui.loop(stop=True)
-```
-Use stop=True to pause after selecting an element, so we can actually see what our element does.
 
-Now, selecting an element will print:
+menu = UI()
+page = menu.add_page()
+page.add_element('Say Hello!', command=hello)
+
+menu.loop(stop=True)
 ```
-Hi there.
+Set `stop=True` to pause after executing an action.
+
+## Passing Parameters
+To pass arguments to your functions use `params`:
+``` python
+def add(a, b):
+    print(a + b)
+
+def shout(message):
+    print(message.upper())
+
+page.add_element('Add numbers', command=add, params=(2, 3))
+page.add_element('Shout', command=shout, params="hello world")
 ```
 
-### Passing Arguments To Commands
-You can also pass parameters to commands:
+## Adding Colors
+Use `tuikit.Style` to style elements:
+``` python
+page.add_element("Unavailable", color=tuikit.Style.DIMMED)
 ```
-def product(*nums):
-    prod = 1
-    for num in nums:
-        prod*=num
-    print(prod)
+Combine multiple styles:
+``` python
+warning_style = tuikit.Style.RED | tuikit.Style.BOLD
+page.add_element("Warning!", color=warning_style)
+page.add_element("Extra warning!", color=warning_style | tuikit.Style.UNDERSCORE_INTERSECT)
+```
 
-def say(what):
-    print(what)
-
-def add(a,b):
-    print(a+b)
-...
-page.add_element('Add numbers', command=add, params=(1,2))
-page.add_element('Say Hello', command=say, params="Hello")
-page.add_element('Multiply', command=product, params=(1,2,3,4,5))
-...
-```
-### Add Color To Elements
-You can style elements using tuikit.Style
-```
-page.add_element('I am red!', color=tuikit.Style.RED)
-```
-### Custom Loops
-Don't like UI.loop()?
-
-You can manually control the flow using `UI.render()` and `UI.ask_input()`:
-
-```
+## Full control Example
+If you want to control the loop manually:
+``` python
 menu = tuikit.UI()
 
+# Create 5 pages, each with 10 elements
 for _ in range(5):
     page = menu.add_page()
     for _ in range(10):
-        page.add_element("Untitled element")
+        page.add_element("Element")
 
+# Custom loop 
 while True:
     menu.render()
-    cur_page = menu.current_page
-    selected_element = menu.ask_input()
-    if selected_element:
-        cur_page.elements[selected_element - 1].color = tuikit.Style.INVERTED
+    selected = menu.ask_input()
+
+    if selected: # Change element's style on selection
+        page = menu.current_page
+        page.elements[selected - 1].color = tuikit.Style.INVERTED
 
     tuikit.cls()
 ```
-This approach lets you add dynamic behavior, such as changing the selected element's style, as shown above.
-
-## UI attributes
-
-- `name: str` - Name of the ui
-- `header: str` | None = Header to show when rendering.
-If not set, an automatic header is generated, e.g.:
-
-```
-P: CURRENT_PAGE_NAME
-UI_NAME 4/4
-```
-
-- `show_name: bool` - if True, auto-header will show UI name.
-- `show_current_page: bool` - if True, auto-header will show current page index.
-- `show_current_page_name: bool` - if True, auto-header will show current page's name.
-
