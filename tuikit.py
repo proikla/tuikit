@@ -146,9 +146,9 @@ class UI:
         self._current_page = None
         self._current_page_index = -1
 
-        self.do_show_name: bool = show_name
-        self.do_show_current_page_idx: bool = show_current_page
-        self.do_show_current_page_name: bool = show_current_page_name
+        self.show_name: bool = show_name
+        self.show_current_page_idx: bool = show_current_page
+        self.show_current_page_name: bool = show_current_page_name
 
         if header:
             self.header = header
@@ -157,17 +157,29 @@ class UI:
             self.header: str = self.make_header()
             self._has_custom_header = False
 
+    def add_element(self, name: str, command=None, params=None, color=0) -> 'UI._Page._Element':
+        """
+        Append new element to the last page. If no pages - create Untitled page.
+        Returns:
+            'UI._Page._Element':
+        """
+        if not self.pages:
+            page = self.add_page()
+        else:
+            page = self.pages[len(self.pages)-1]
+        element = page._Element(name, command, params, color)
+        page.elements.append(element)
+        return element
+
     def make_header(self) -> str:
         """
-        Returns menu header.
-        e.g.:
+        Returns:
+            str: menu header.
 
-        P: CURRENT_PAGE_NAME
-        menu_name 4/4
-        ...
-
+        >>> make_header()
+        "P: CURRENT_PAGE_NAME\\nmenu_name 4/4"
         """
-        self.header = f" P: {self.current_page.label + '\n' if self.current_page and self.do_show_current_page_name else ''} {self.name + ' ' if self.do_show_name else ''}{self.current_page_index + 1 if self.do_show_current_page_idx else ''}/{len(self.pages)}\n"
+        self.header = f" P: {self.current_page.label + '\n' if self.current_page and self.show_current_page_name else ''} {self.name + ' ' if self.show_name else ''}{self.current_page_index + 1 if self.show_current_page_idx else ''}/{len(self.pages)}\n"
         return self.header
 
     def render(self, page: '_Page' = None):
@@ -280,7 +292,8 @@ class UI:
             def __call__(self) -> None:
                 #  determine argcount.
                 argcount = self.command.__code__.co_argcount
-                # fix
+
+                # ? fix
                 if argcount > 0 and self.command.__code__.co_varnames[0] == 'self':
                     argcount -= 1
 
