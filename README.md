@@ -45,7 +45,7 @@ groceries.add_element('Bread')
 groceries.add_element('Milk')
 
 # append an element to the last page
-menu.add_element('Cheese')
+menu.append_element('Cheese')
 
 menu.loop()
 ```

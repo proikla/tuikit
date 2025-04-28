@@ -157,7 +157,7 @@ class UI:
             self.header: str = self.make_header()
             self._has_custom_header = False
 
-    def add_element(self, name: str, command=None, params=None, color=0) -> 'UI._Page._Element':
+    def append_element(self, name: str, command=None, params=None, color=0) -> 'UI._Page._Element':
         """
         Append new element to the last page. If no pages - create Untitled page.
         Returns:
