@@ -162,14 +162,20 @@ class UI:
         Append new element to the last page. If no pages - create Untitled page.
         Returns:
             'UI._Page._Element':
+
+        >>> from tuikit import UI
+        >>> ui = UI()
+        >>> ui.add_page()
+        ''
         """
         if not self.pages:
             page = self.add_page()
         else:
             page = self.pages[len(self.pages)-1]
         element = page._Element(name, command, params, color)
+        element._parent_page = page
         page.elements.append(element)
-        return element
+        return page._ElementProxy(element)
 
     def make_header(self) -> str:
         """
@@ -285,8 +291,9 @@ class UI:
 
         def add_element(self, name: str, command=None, params=None, color=0) -> '_Element':
             element = self._Element(name, command, params, color)
+            element._parent_page = self  # link back Page
             self.elements.append(element)
-            return element
+            return self._ElementProxy(element)  # return a proxy
 
         class _Element:
             def __call__(self) -> None:
@@ -313,3 +320,18 @@ class UI:
                 self.command: function = command
                 self.params: tuple = params
                 self.color: int = color
+                self._parent_page = None
+
+        class _ElementProxy:
+            def __init__(self, element):
+                self._element = element
+
+            def __getattr__(self, item):
+                try:
+                    return getattr(self._element, item)
+                except AttributeError:
+                    # fall back to parent page
+                    attr = getattr(self._element._parent_page, item)
+                    if callable(attr):
+                        return attr.__get__(self._element._parent_page)
+                    return attr
