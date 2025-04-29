@@ -1,5 +1,6 @@
 from enum import IntEnum
 import os
+import sys
 from typing import Iterable, Union
 
 
@@ -95,10 +96,10 @@ def color(style: Union[Style, CombinedStyle] = None) -> str:
     >>> color(Style.YELLOW | Style.BOLD)
     '\\033[33;1m\\033[0m'
     >>> color()
-    '\\033[0m'
+    '\\033[m'
     """
     if not style:
-        return "\033[0m"
+        return "\033[m"
 
     if isinstance(style, Style):
         codes = [] if style is Style.REGULAR else [str(style.value)]
@@ -238,15 +239,20 @@ class UI:
         if not page:
             page = self.current_page
 
+        # Header rendering
         if self._has_custom_header:
             header = self.header
         else:
             header = self.make_header()
-
         print(header, flush=True)
+
+        # Elements rendering
         for idx, element in enumerate(page.elements):
+            # padding =
+            index = f"{idx+1:2}: "
+            padding = element.get_padding(offset=-len(index))
             print(
-                f"{color(element.color)}{idx+1:2}: {element.label} {color()}", flush=True)
+                f"{padding}{color(element.color)}{index}{element.label}{color()}", flush=True)
 
     def ask_input(self, change_page_on_keypress=True, cursor='>>> ') -> int:
         """
@@ -306,15 +312,15 @@ class UI:
         def rename(self, to: str = "Untitled page"):
             self.label = to
 
-        def add_element(self, name: str, command=None, params=None, color=0) -> '_Element':
-            element = self._Element(name, command, params, color)
+        def add_element(self, name: str, command=None, params=None, color=0, alignment='left') -> '_Element':
+            element = self._Element(name, command, params, color, alignment)
             element._parent_page = self  # link back Page
             self.elements.append(element)
             return self._ElementProxy(element)  # return a proxy
 
-        def append_element(self, name: str, command=None, params=None, color=0) -> '_Element':
+        def append_element(self, name: str, command=None, params=None, color=0, alignment='left') -> '_Element':
             # when chaining
-            return self.add_element(name, command, params, color)
+            return self.add_element(name, command, params, color, alignment)
 
         class _Element:
             def __call__(self) -> None:
@@ -336,15 +342,27 @@ class UI:
                 else:
                     self.command(*self.params)
 
-            def __init__(self, label, command, params, color=0):
+            def __init__(self, label, command, params, color=Style.REGULAR, alignment='left'):
                 self.label: str = label
                 self.command: function = command
                 self.params: tuple = params
-                self.color: int = color
+                self.color = color
                 self._parent_page = None
+                self.alignment = alignment
 
             def rename(self, to: str = 'Untitled element') -> None:
                 self.label = to
+
+            def get_padding(self, offset=0):
+                x, y = os.get_terminal_size(sys.stdout.fileno())
+
+                match self.alignment.lower():
+                    case 'center':
+                        return ' ' * (int(x/2) - len(self.label) + offset)
+                    case 'left':
+                        return ' ' * offset
+                    case 'right':
+                        return ' ' * (x - len(self.label) + offset)
 
         class _ElementProxy:
             def __init__(self, element):
