@@ -157,6 +157,43 @@ class UI:
             self.header: str = self.make_header()
             self._has_custom_header = False
 
+    @property
+    def current_page(self):
+        return self._current_page
+
+    @current_page.setter
+    def current_page(self, page: '_Page'):
+        if page in self.pages:
+            self._current_page = page
+            self._current_page_index = self.pages.index(page)
+
+    @property
+    def current_page_index(self):
+        return self._current_page_index
+
+    @current_page_index.setter
+    def current_page_index(self, idx: int):
+        if 0 <= idx < len(self.pages):
+            self._current_page_index = idx
+            self._current_page = self.pages[idx]
+
+    def delete_page(self, page):
+        if page in self.pages:
+            self.pages.remove(page)
+
+        elif isinstance(page, str):
+            for p in self.pages:
+                if getattr(p, "name", None) == page:
+                    self.delete_page(p)
+                    break
+            else:
+                raise ValueError(f"Page with name '{page}' not found.")
+        else:
+            raise TypeError("page must be a Page instance or string name")
+
+    def rename(self, to: str = "Untitled UI"):
+        self.name = to
+
     def append_element(self, name: str, command=None, params=None, color=0) -> 'UI._Page._Element':
         """
         Append new element to the last page. If no pages - create Untitled page.
@@ -165,8 +202,7 @@ class UI:
 
         >>> from tuikit import UI
         >>> ui = UI()
-        >>> ui.add_page()
-        ''
+        >>> ui.append_element()
         """
         if not self.pages:
             page = self.add_page()
@@ -176,6 +212,15 @@ class UI:
         element._parent_page = page
         page.elements.append(element)
         return page._ElementProxy(element)
+
+    def add_page(self, label: str = f'Untitled page') -> '_Page':
+        page = self._Page(label)
+        self.pages.append(page)
+
+        if len(self.pages) == 1:
+            self.current_page = page
+
+        return page
 
     def make_header(self) -> str:
         """
@@ -203,27 +248,7 @@ class UI:
             print(
                 f"{color(element.color)}{idx+1:2}: {element.label} {color()}", flush=True)
 
-    @property
-    def current_page(self):
-        return self._current_page
-
-    @current_page.setter
-    def current_page(self, page: '_Page'):
-        if page in self.pages:
-            self._current_page = page
-            self._current_page_index = self.pages.index(page)
-
-    @property
-    def current_page_index(self):
-        return self._current_page_index
-
-    @current_page_index.setter
-    def current_page_index(self, idx: int):
-        if 0 <= idx < len(self.pages):
-            self._current_page_index = idx
-            self._current_page = self.pages[idx]
-
-    def ask_input(self, change_page_on_keypress=True, cursor='>>>') -> int:
+    def ask_input(self, change_page_on_keypress=True, cursor='>>> ') -> int:
         """
         Prompts number input, return it. \n
         If 'a' or 'd' key is pressed, switch page to left or right accordingly, return None. \n
@@ -244,7 +269,7 @@ class UI:
 
         print(key, end='', flush=True)
         user_input = key + input()
-        
+
         if user_input.isnumeric() and int(user_input) <= len(self.current_page.elements):
             user_input = int(user_input)
             index = user_input-1
@@ -257,7 +282,6 @@ class UI:
     def loop(self, stop: bool = False) -> None:
         if not self.pages:
             self.current_page = self.add_page()
-
         while True:
             if stop:
                 skip = True
@@ -266,22 +290,12 @@ class UI:
 
             usr = self.ask_input()
 
-            if usr >= 0 and self.current_page.elements[usr-1].command:
+            if usr and usr > 0 and self.current_page.elements[usr-1].command:
                 skip = False
-
                 if stop and not skip:
                     input()
 
             cls()
-
-    def add_page(self, label: str = f'Untitled page') -> '_Page':
-        page = self._Page(label)
-        self.pages.append(page)
-
-        if len(self.pages) == 1:
-            self.current_page = page
-
-        return page
 
     class _Page:
 
@@ -289,11 +303,18 @@ class UI:
             self.label = label
             self.elements: list[UI._Page._Element] = []
 
+        def rename(self, to: str = "Untitled page"):
+            self.label = to
+
         def add_element(self, name: str, command=None, params=None, color=0) -> '_Element':
             element = self._Element(name, command, params, color)
             element._parent_page = self  # link back Page
             self.elements.append(element)
             return self._ElementProxy(element)  # return a proxy
+
+        def append_element(self, name: str, command=None, params=None, color=0) -> '_Element':
+            # when chaining
+            return self.add_element(name, command, params, color)
 
         class _Element:
             def __call__(self) -> None:
@@ -321,6 +342,9 @@ class UI:
                 self.params: tuple = params
                 self.color: int = color
                 self._parent_page = None
+
+            def rename(self, to: str = 'Untitled element') -> None:
+                self.label = to
 
         class _ElementProxy:
             def __init__(self, element):
