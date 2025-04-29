@@ -358,7 +358,7 @@ class UI:
 
                 match self.alignment.lower():
                     case 'center':
-                        return ' ' * (int(x/2) - len(self.label) + offset)
+                        return ' ' * (int(x/2) - int(len(self.label)/2) + offset)
                     case 'left':
                         return ' ' * offset
                     case 'right':
