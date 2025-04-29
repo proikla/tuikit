@@ -122,9 +122,16 @@ if os.name == 'nt':
     import msvcrt
 
     def get_keypress():
-        return msvcrt.getch().decode('utf-8')
+        key = msvcrt.getch()
+        if key == b'\x00' or key == b'\xe0':
+            key = msvcrt.getch()  # capture next byte
+            if key == b'K':  # left arrow
+                return 'left'
+            elif key == b'M':  # right arrow
+                return 'right'
+
+        return key.decode('utf-8')
 else:
-    import sys
     import termios
     import tty
 
@@ -133,10 +140,17 @@ else:
         old_settings = termios.tcgetattr(fd)
         try:
             tty.setraw(fd)
-            ch = sys.stdin.read(1)
+            key = sys.stdin.read(1)
+            # arrow keys check
+            if key == '\x1b':  # escape char
+                seq = sys.stdin.read(2)  # read the next two characters
+                if seq == '[D':
+                    return 'left'
+                elif seq == '[C':
+                    return 'right'
+            return key
         finally:
             termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
-        return ch
 
 
 class UI:
@@ -270,10 +284,10 @@ class UI:
         if key in ['\r', '\x08']:
             return None
 
-        if key == 'd':
+        if key == 'd' or key == 'right':
             self.current_page_index += 1
             return None
-        if key == 'a':
+        if key == 'a' or key == 'left':
             self.current_page_index -= 1
             return None
 
