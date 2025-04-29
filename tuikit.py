@@ -123,7 +123,12 @@ if os.name == 'nt':
 
     def get_keypress():
         key = msvcrt.getch()
-        if key == b'\x00' or key == b'\xe0':
+
+        # ctrl + c
+        if key == b'\x03':
+            raise KeyboardInterrupt
+
+        if key == b'\x00' or key == b'\xe0':  # arrow keys
             key = msvcrt.getch()  # capture next byte
             if key == b'K':  # left arrow
                 return 'left'
@@ -209,7 +214,7 @@ class UI:
     def rename(self, to: str = "Untitled UI"):
         self.name = to
 
-    def append_element(self, name: str, command=None, params=None, color=0) -> 'UI._Page._Element':
+    def append_element(self, name: str, command=None, params=None, color=Style.REGULAR) -> 'UI._Page._Element':
         """
         Append new element to the last page. If no pages - create Untitled page.
         Returns:
@@ -304,8 +309,12 @@ class UI:
         return None
 
     def loop(self, stop: bool = False) -> None:
+        # page to render before user input
+        this_page = self.current_page
+
         if not self.pages:
             self.current_page = self.add_page()
+
         while True:
             if stop:
                 skip = True
@@ -314,7 +323,8 @@ class UI:
 
             usr = self.ask_input()
 
-            if usr and usr > 0 and self.current_page.elements[usr-1].command:
+            # ?
+            if usr and usr > 0 and this_page.elements[usr-1].command != None:
                 skip = False
                 if stop and not skip:
                     input()
@@ -331,13 +341,13 @@ class UI:
         def rename(self, to: str = "Untitled page"):
             self.label = to
 
-        def add_element(self, name: str, command=None, params=None, color=0, alignment='left') -> '_Element':
+        def add_element(self, name: str, command=None, params=None, color=Style.REGULAR, alignment='left') -> '_Element':
             element = self._Element(name, command, params, color, alignment)
             element._parent_page = self  # link back Page
             self.elements.append(element)
             return self._ElementProxy(element)  # return a proxy
 
-        def append_element(self, name: str, command=None, params=None, color=0, alignment='left') -> '_Element':
+        def append_element(self, name: str, command=None, params=None, color=Style.REGULAR, alignment='left') -> '_Element':
             # when chaining
             return self.add_element(name, command, params, color, alignment)
 
@@ -351,7 +361,7 @@ class UI:
                     argcount -= 1
 
                 # if there is no arguments
-                if argcount == 0 and not type(self.params) is type(tuple()):
+                if argcount == 0 and not isinstance(self.params, type):
                     self.command()
 
                 elif argcount == 1:
