@@ -214,8 +214,8 @@ class UI:
         page.elements.append(element)
         return page._ElementProxy(element)
 
-    def add_page(self, label: str = f'Untitled page') -> '_Page':
-        page = self._Page(label)
+    def add_page(self, label: str = f'Untitled page', default_padding=0) -> '_Page':
+        page = self._Page(label, default_padding)
         self.pages.append(page)
 
         if len(self.pages) == 1:
@@ -248,9 +248,13 @@ class UI:
 
         # Elements rendering
         for idx, element in enumerate(page.elements):
-            # padding =
             index = f"{idx+1:2}: "
-            padding = element.get_padding(offset=-len(index))
+            # calculate padding
+            if page.default_padding:
+                padding = page.default_padding
+            else:
+                padding = element.get_padding(offset=-len(index))
+
             print(
                 f"{padding}{color(element.color)}{index}{element.label}{color()}", flush=True)
 
@@ -305,9 +309,10 @@ class UI:
 
     class _Page:
 
-        def __init__(self, label: str = 'Untitled page'):
+        def __init__(self, label: str = 'Untitled page', default_padding=0):
             self.label = label
             self.elements: list[UI._Page._Element] = []
+            self.default_padding = ' ' * default_padding
 
         def rename(self, to: str = "Untitled page"):
             self.label = to
@@ -354,15 +359,15 @@ class UI:
                 self.label = to
 
             def get_padding(self, offset=0):
-                x, y = os.get_terminal_size(sys.stdout.fileno())
+                width, _ = os.get_terminal_size(sys.stdout.fileno())
 
                 match self.alignment.lower():
                     case 'center':
-                        return ' ' * (int(x/2) - int(len(self.label)/2) + offset)
+                        return ' ' * (int(width/2) - int(len(self.label)/2) + offset)
                     case 'left':
                         return ' ' * offset
                     case 'right':
-                        return ' ' * (x - len(self.label) + offset)
+                        return ' ' * (width - len(self.label) + offset)
 
         class _ElementProxy:
             def __init__(self, element):
