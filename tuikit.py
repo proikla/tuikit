@@ -130,10 +130,16 @@ if os.name == 'nt':
 
         if key == b'\x00' or key == b'\xe0':  # arrow keys
             key = msvcrt.getch()  # capture next byte
-            if key == b'K':  # left arrow
+            if key == b'H':  # up arrow
+                return 'up'
+            elif key == b'P':  # down arrow
+                return 'down'
+            elif key == b'K':  # left arrow
                 return 'left'
             elif key == b'M':  # right arrow
                 return 'right'
+
+            return None
 
         return key.decode('utf-8')
 else:
@@ -254,7 +260,8 @@ class UI:
         return self.header
 
     def render(self, page: '_Page' = None):
-        '''print all elements in the provided page'''
+        '''print header and all elements in the provided page'''
+
         if not page:
             page = self.current_page
 
@@ -268,14 +275,21 @@ class UI:
         # Elements rendering
         for idx, element in enumerate(page.elements):
             index = f"{idx+1:2}: "
+
             # calculate padding
             if page.default_padding:
                 padding = page.default_padding
             else:
                 padding = element.get_padding(offset=-len(index))
 
+            # change element's color if it is selected.
+            if page.selected_element and element is page.selected_element:
+                element_color = element.color | Style.INVERTED
+            else:
+                element_color = element.color
+
             print(
-                f"{padding}{color(element.color)}{index}{element.label}{color()}", flush=True)
+                f"{padding}{color(element_color)}{index}{element.label}{color()}", flush=True)
 
     def ask_input(self, change_page_on_keypress=True, cursor='>>> ') -> int:
         """
@@ -286,19 +300,58 @@ class UI:
 
         key = get_keypress() if change_page_on_keypress else ''
 
-        if key in ['\r', '\x08']:
+        # backspace pressed
+        if key == '\x08':
             return None
 
-        if key == 'd' or key == 'right':
-            self.current_page_index += 1
+        # enter pressed
+        if key == '\r':
+            if self.current_page.selected_element:
+                self.current_page.selected_element()
             return None
-        if key == 'a' or key == 'left':
-            self.current_page_index -= 1
+
+        current_page = self.current_page
+        if key in ['a', 'd', 'w', 's', 'up', 'down', 'left', 'right']:
+            if key == 'd' or key == 'right':
+                self.pages[self.current_page_index].selected_element = None
+                self.current_page_index += 1
+
+            elif key == 'a' or key == 'left':
+                self.pages[self.current_page_index].selected_element = None
+                self.current_page_index -= 1
+
+            elif key == 'w' or key == 'up':
+                # if there's no selected element, make the last element selected.
+                if not current_page.selected_element and current_page.elements:
+                    current_page.selected_element = current_page.elements[-1]
+                    return None
+
+                # change selected element to the previous one.
+                if current_page.elements.index(current_page.selected_element) > 0:
+                    prev_element_index = current_page.elements.index(
+                        current_page.selected_element)-1
+
+                    current_page.selected_element = current_page.elements[prev_element_index]
+
+            elif key == 's' or key == 'down':
+                # if there's no selected element, make the first element selected.
+                if current_page.elements and not current_page.selected_element:
+                    current_page.selected_element = current_page.elements[0]
+                    return None
+
+                # change selected element to the next one.
+                if current_page.elements.index(current_page.selected_element) < len(current_page.elements)-1:
+                    next_element_index = current_page.elements.index(
+                        current_page.selected_element)+1
+
+                    current_page.selected_element = current_page.elements[next_element_index]
+
             return None
 
         print(key, end='', flush=True)
         user_input = key + input()
 
+        # if an element is chosen by index, execute its command
         if user_input.isnumeric() and int(user_input) <= len(self.current_page.elements):
             user_input = int(user_input)
             index = user_input-1
@@ -316,6 +369,8 @@ class UI:
             self.current_page = self.add_page()
 
         while True:
+            cls()
+
             if stop:
                 skip = True
 
@@ -329,14 +384,24 @@ class UI:
                 if stop and not skip:
                     input()
 
-            cls()
-
     class _Page:
 
         def __init__(self, label: str = 'Untitled page', default_padding=0):
             self.label = label
             self.elements: list[UI._Page._Element] = []
             self.default_padding = ' ' * default_padding
+
+            self._selected_element: 'UI._Page._Element' = None
+
+        @property
+        def selected_element(self):
+            return self._selected_element
+
+        @selected_element.setter
+        def selected_element(self, element):
+            if element is not None and element not in self.elements:
+                return
+            self._selected_element = element
 
         def rename(self, to: str = "Untitled page"):
             self.label = to
@@ -345,6 +410,7 @@ class UI:
             element = self._Element(name, command, params, color, alignment)
             element._parent_page = self  # link back Page
             self.elements.append(element)
+
             return self._ElementProxy(element)  # return a proxy
 
         def append_element(self, name: str, command=None, params=None, color=Style.REGULAR, alignment='left') -> '_Element':
