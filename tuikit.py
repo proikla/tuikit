@@ -155,7 +155,11 @@ else:
             # arrow keys check
             if key == '\x1b':  # escape char
                 seq = sys.stdin.read(2)  # read the next two characters
-                if seq == '[D':
+                if seq == '[A':
+                    return 'up'
+                elif seq == '[B':
+                    return 'down'
+                elif seq == '[D':
                     return 'left'
                 elif seq == '[C':
                     return 'right'
@@ -420,6 +424,9 @@ class UI:
         class _Element:
             def __call__(self) -> None:
                 #  determine argcount.
+                if not self.command:
+                    return None
+
                 argcount = self.command.__code__.co_argcount
 
                 # ? fix
