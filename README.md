@@ -2,7 +2,7 @@
 **Tuikit** is a user-friendly python library for building interactive terminal menus with ease.
 
 ## Features
-- Page navigation (A / D keys)
+- Page navigation
 - Selectable elements
 - Styled elements with `tuikit.Style`
 - Command binding with arguments
@@ -18,7 +18,7 @@ Elements can be chained easily:
 ``` python
 import tuikit
 menu = tuikit.UI()
-menu.add_element("Hello").add_element("World")
+menu.append_element("Hello").append_element("World")
 menu.loop()
 ```
 #### Output:
@@ -59,6 +59,7 @@ Untitled UI 1/2
 >>>        
 ```
 Press A and D to navigate between pages.
+Press W and S to select element.
 
 ## Adding Actions
 You can bind a function to an element:
