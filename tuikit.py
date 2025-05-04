@@ -1,5 +1,6 @@
 from enum import IntEnum
 import os
+import signal
 import sys
 from typing import Iterable, Union
 
@@ -81,15 +82,15 @@ def color(style: Union[Style, CombinedStyle] = None) -> str:
 
     Parameters
     ----------
-    style : Style or tuple of Style
+    style : Style or tuple of Style or None
         One or more `Style` enum members (e.g. `Style.RED`, or `Style.BOLD | Style.UNDERLINE`)
-        specifying ANSI codes to apply. Use `Style.REGULAR` (or no style) to return the unmodified text.
+        specifying ANSI codes to apply.
+        Use `Style.REGULAR` or no style to return regular ANSI code.
 
     Returns
     -------
     str
-        The original `text` wrapped in the appropriate ANSI escape codes, e.g.
-        `"\033[31;1mHello\033[0m"` for `Style.RED | Style.BOLD`.
+        color codes for provided style.
 
     Example
     --------
@@ -152,6 +153,8 @@ else:
         try:
             tty.setraw(fd)
             key = sys.stdin.read(1)
+            if key == '\x03':
+                os.kill(os.getpid(), signal.SIGINT)
             # arrow keys check
             if key == '\x1b':  # escape char
                 seq = sys.stdin.read(2)  # read the next two characters
@@ -169,6 +172,21 @@ else:
 
 
 class UI:
+    """
+    Tuikit menu object.
+
+
+    Attributes:
+    -----------
+    name: str
+        a name for the ui. used to make an autoheader
+    header: str
+        header to display on render. if None - an autoheader is generated.
+
+    Methods:
+    --------
+
+    """
 
     def __init__(self, name: str = 'Untitled UI', header: str | None = None, show_name: bool = True, show_current_page: bool = True, show_current_page_name: bool = True):
         self.pages: list[UI._Page] = []
@@ -207,7 +225,46 @@ class UI:
             self._current_page_index = idx
             self._current_page = self.pages[idx]
 
-    def delete_page(self, page):
+    def find_element(self, element_name: str):
+        """
+        iterates through all pages to find element by name.
+
+        Returns:
+            '_Element' object
+
+        """
+
+        if not self.pages:
+            return
+
+        # iterate thru all pages to find element by name
+        for page in self.pages:
+            for elem in page.elements:
+                if elem.label == element_name:
+                    return elem
+
+    def goto(self, page: "UI._Page") -> None:
+        """
+        switch current page to page if it is present in the UI.
+
+        Parameters:
+            page (_Page): a page object that you want to switch UI to.
+        Returns:
+            None:
+        """
+
+        if isinstance(page, self._Page) and page in self.pages:
+            self.current_page = page
+
+    def delete_page(self, page: str) -> None:
+        """
+        remove a page by its name or instance.
+
+        Parameters:
+            page (_Page | str): a page object or name of the page you want to remove from UI
+        Returns:
+            None:
+        """
         if page in self.pages:
             self.pages.remove(page)
 
@@ -221,14 +278,23 @@ class UI:
         else:
             raise TypeError("page must be a Page instance or string name")
 
+    # todo debug
     def rename(self, to: str = "Untitled UI"):
+        """
+        rename UI.
+
+        Parameters:
+            to (str): a new name for the UI.
+        Returns:
+            None:
+        """
         self.name = to
 
     def append_element(self, name: str, command=None, params=None, color=Style.REGULAR) -> 'UI._Page._Element':
         """
         Append new element to the last page. If no pages - create Untitled page.
         Returns:
-            'UI._Page._Element':
+            'UI._Page._Element': created element instance
 
         >>> from tuikit import UI
         >>> ui = UI()
@@ -244,9 +310,19 @@ class UI:
         return page._ElementProxy(element)
 
     def add_page(self, label: str = f'Untitled page', default_padding=0) -> '_Page':
+        """
+        add a page to the UI.
+
+        Parameters:
+            label (str): name of the page you want to create.
+        Returns:
+            _Page: page you created.
+        """
+
         page = self._Page(label, default_padding)
         self.pages.append(page)
 
+        # if there were no pages before
         if len(self.pages) == 1:
             self.current_page = page
 
@@ -263,9 +339,26 @@ class UI:
         self.header = f" P: {self.current_page.label + '\n' if self.current_page and self.show_current_page_name else ''} {self.name + ' ' if self.show_name else ''}{self.current_page_index + 1 if self.show_current_page_idx else ''}/{len(self.pages)}\n"
         return self.header
 
-    def render(self, page: '_Page' = None):
-        '''print header and all elements in the provided page'''
+    def render(self, page: '_Page' = None, render_status=False, show_index=True) -> None:
+        '''
+        print menu's header and all elements in the provided page. if no page specified - renders menu's current page.
 
+        Parameters:
+            page (_Page): a page you want to display
+            render_status (bool): whether to display the status of each element.
+            show_index (bool): whether to display element's index
+        >>> render(render_status=True)
+        'menu_header'
+        '1: element_name element_status'
+        >>> render(show_index=True)
+        'menu_header'
+        'element_name'
+
+        Returns:
+            None:
+        '''
+
+        # if no page provided
         if not page:
             page = self.current_page
 
@@ -278,7 +371,10 @@ class UI:
 
         # Elements rendering
         for idx, element in enumerate(page.elements):
-            index = f"{idx+1:2}: "
+            if show_index:
+                index = f"{idx+1:2}: "
+            else:
+                index = ""
 
             # calculate padding
             if page.default_padding:
@@ -292,104 +388,143 @@ class UI:
             else:
                 element_color = element.color
 
+            # print element status if specified
+            if render_status:
+                element_name = f"{element.label} {element.status}"
+            else:
+                element_name = element.label
+
             print(
-                f"{padding}{color(element_color)}{index}{element.label}{color()}", flush=True)
+                f"{padding}{color(element_color)}{index}{element_name}{color()}", flush=True
+            )
 
-    def ask_input(self, change_page_on_keypress=True, cursor='>>> ') -> int:
+    # todo backspace
+    def handle_navigation_key(self, key):
         """
-        Prompts number input, return it. \n
-        If 'a' or 'd' key is pressed, switch page to left or right accordingly, return None. \n
-        """
-        print(cursor, end='', flush=True)
+        Handles w/a/s/d/enter and arrow keys.
+        W - element selection up \n
+        A - go one page left \n
+        S - element selection down \n
+        D - go one page right \n
 
-        key = get_keypress() if change_page_on_keypress else ''
+        Parameters:
+            key (str): a pressed key to handle
+
+        Returns:
+            key (str | _Element): pressed key, or `_Element` instance if selected by Enter.
+        """
+
+        current_page = self.current_page
 
         # backspace pressed
-        if key == '\x08':
-            return None
+        # if key == '\x08':
+        #     return
 
         # enter pressed
         if key == '\r':
             if self.current_page.selected_element:
                 self.current_page.selected_element()
+            return self.current_page.selected_element
+
+        if key == 'd' or key == 'right':
+            self.pages[self.current_page_index].selected_element = None
+            self.current_page_index += 1
+
+        elif key == 'a' or key == 'left':
+            self.pages[self.current_page_index].selected_element = None
+            self.current_page_index -= 1
+
+        elif key == 'w' or key == 'up':
+            # if there's no selected element, make the last element selected.
+            if not current_page.selected_element and current_page.elements:
+                current_page.selected_element = current_page.elements[-1]
+
+            # change selected element to the previous one.
+            elif current_page.elements.index(current_page.selected_element) > 0:
+                prev_element_index = current_page.elements.index(
+                    current_page.selected_element)-1
+
+                current_page.selected_element = current_page.elements[prev_element_index]
+
+        elif key == 's' or key == 'down':
+            # if there's no selected element, make the first element selected.
+            if current_page.elements and not current_page.selected_element:
+                current_page.selected_element = current_page.elements[0]
+
+            # change selected element to the next one.
+            elif current_page.elements.index(current_page.selected_element) < len(current_page.elements)-1:
+                next_element_index = current_page.elements.index(
+                    current_page.selected_element)+1
+
+                current_page.selected_element = current_page.elements[next_element_index]
+        return key
+
+    def ask_input(self, navigation_mode=True, cursor='>>> ') -> int | str:
+        """ 
+        Prompts number input, returns it. \n
+        Parameters:
+            navigation_mode (bool): if True, handle w/a/s/d with `handle_navigation_key`, allowing only numeric input. If False, string input is allowed, arrow keys and enter are still handled.
+        Returns:
+
+        """
+        if not self.current_page:
             return None
 
-        current_page = self.current_page
-        if key in ['a', 'd', 'w', 's', 'up', 'down', 'left', 'right']:
-            if key == 'd' or key == 'right':
-                self.pages[self.current_page_index].selected_element = None
-                self.current_page_index += 1
+        print(cursor, end='', flush=True)
+        key = get_keypress()
 
-            elif key == 'a' or key == 'left':
-                self.pages[self.current_page_index].selected_element = None
-                self.current_page_index -= 1
+        # navigation mode
+        if navigation_mode:
+            if key in ['up', 'down', 'left', 'right', '\r', 'w', 'a', 's', 'd']:  # handle navigation keys
+                self.handle_navigation_key(key)
+                return
+            if not key.isnumeric():  # only numeric input is allowed
+                return
+        else:  # not navigation mode
+            if key in ['up', 'down', 'left', 'right', '\r']:  # handle only arrows and enter
+                self.handle_navigation_key(key)
+                return
 
-            elif key == 'w' or key == 'up':
-                # if there's no selected element, make the last element selected.
-                if not current_page.selected_element and current_page.elements:
-                    current_page.selected_element = current_page.elements[-1]
-                    return None
-
-                # change selected element to the previous one.
-                if current_page.elements.index(current_page.selected_element) > 0:
-                    prev_element_index = current_page.elements.index(
-                        current_page.selected_element)-1
-
-                    current_page.selected_element = current_page.elements[prev_element_index]
-
-            elif key == 's' or key == 'down':
-                # if there's no selected element, make the first element selected.
-                if current_page.elements and not current_page.selected_element:
-                    current_page.selected_element = current_page.elements[0]
-                    return None
-
-                # change selected element to the next one.
-                if current_page.elements.index(current_page.selected_element) < len(current_page.elements)-1:
-                    next_element_index = current_page.elements.index(
-                        current_page.selected_element)+1
-
-                    current_page.selected_element = current_page.elements[next_element_index]
-
-            return None
+        # backspace pressed
+        if key == '\x08':
+            key = ''
 
         print(key, end='', flush=True)
-        user_input = key + input()
 
-        # if an element is chosen by index, execute its command
+        user_input = key + input()  # todo rework this
+
+        # if an element is chosen by index execute its command
         if user_input.isnumeric() and int(user_input) <= len(self.current_page.elements):
             user_input = int(user_input)
-            index = user_input-1
-            if self.current_page.elements[index].command:
-                self.current_page.elements[index]()
+            if self.current_page.elements[user_input-1].command:
+                self.current_page.elements[user_input-1]()
 
-            return user_input
-        return None
+        return user_input
 
     def loop(self, stop: bool = False) -> None:
-        # page to render before user input
-        this_page = self.current_page
+        """
+        continuously renders current page and prompts user for input.
+        if no pages - creates untitled page. 
+        Parameters:
+            stop (bool): if True, pause after selecting an element.
+        """
 
         if not self.pages:
             self.current_page = self.add_page()
 
+        # page to render before user input
         while True:
             cls()
 
-            if stop:
-                skip = True
-
-            self.render(self.current_page)
+            self.render()
 
             usr = self.ask_input()
 
-            # ?
-            if usr and usr > 0 and this_page.elements[usr-1].command != None:
-                skip = False
-                if stop and not skip:
+            if usr and isinstance(usr, int) and 0 < usr < len(self.current_page.elements) and self.current_page.elements[usr-1].command:
+                if stop:
                     input()
 
     class _Page:
-
         def __init__(self, label: str = 'Untitled page', default_padding=0):
             self.label = label
             self.elements: list[UI._Page._Element] = []
@@ -408,9 +543,11 @@ class UI:
             self._selected_element = element
 
         def rename(self, to: str = "Untitled page"):
+            "Renames itself to `to`"
             self.label = to
 
         def add_element(self, name: str, command=None, params=None, color=Style.REGULAR, alignment='left') -> '_Element':
+            "Adds an element to itself"
             element = self._Element(name, command, params, color, alignment)
             element._parent_page = self  # link back Page
             self.elements.append(element)
@@ -418,7 +555,7 @@ class UI:
             return self._ElementProxy(element)  # return a proxy
 
         def append_element(self, name: str, command=None, params=None, color=Style.REGULAR, alignment='left') -> '_Element':
-            # when chaining
+            # add element when chaining
             return self.add_element(name, command, params, color, alignment)
 
         class _Element:
@@ -434,7 +571,7 @@ class UI:
                     argcount -= 1
 
                 # if there is no arguments
-                if argcount == 0 and not isinstance(self.params, type):
+                if argcount == 0 and not isinstance(self.params, tuple):
                     self.command()
 
                 elif argcount == 1:
@@ -444,18 +581,32 @@ class UI:
                 else:
                     self.command(*self.params)
 
-            def __init__(self, label, command, params, color=Style.REGULAR, alignment='left'):
-                self.label: str = label
+            def __init__(self, label, command, params, color=Style.REGULAR, alignment='left', status: str = ''):
+                self._label: str = label
                 self.command: function = command
                 self.params: tuple = params
                 self.color = color
-                self._parent_page = None
+                self._parent_page: 'UI._Page' = None
                 self.alignment = alignment
+                self.status = status
+
+            @property
+            def label(self):
+                return self._label
+
+            @label.setter
+            def label(self, new):
+                self._label = new
 
             def rename(self, to: str = 'Untitled element') -> None:
+                "renames itself to `to`"
+                # if isinstance(from_name, str): # wtf is this tho
+                #     self._parent_page.elements[self._parent_page.elements.index(
+                #         self)].label = to
                 self.label = to
 
             def get_padding(self, offset=0):
+                "get terminal width and return element's padding according to its alignment"
                 width, _ = os.get_terminal_size(sys.stdout.fileno())
 
                 match self.alignment.lower():
@@ -467,9 +618,12 @@ class UI:
                         return ' ' * (width - len(self.label) + offset)
 
         class _ElementProxy:
+            "helper to allow chaining"
+
             def __init__(self, element):
                 self._element = element
 
+            # ?
             def __getattr__(self, item):
                 try:
                     return getattr(self._element, item)
