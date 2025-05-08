@@ -339,6 +339,17 @@ class UI:
         self.header = f" P: {self.current_page.label + '\n' if self.current_page and self.show_current_page_name else ''} {self.name + ' ' if self.show_name else ''}{self.current_page_index + 1 if self.show_current_page_idx else ''}/{len(self.pages)}\n"
         return self.header
 
+    def _print(self, text: str | list, end='\n', sep='') -> None:
+        if isinstance(text, list):
+            text.append(end)
+            output = sep.join(text)
+            os.write(1, output.encode())
+            return
+
+        elif isinstance(text, str):
+            output = text + end
+            os.write(1, output.encode())
+
     def render(self, page: '_Page' = None, render_status=False, show_index=True) -> None:
         '''
         print menu's header and all elements in the provided page. if no page specified - renders menu's current page.
@@ -367,9 +378,10 @@ class UI:
             header = self.header
         else:
             header = self.make_header()
-        print(header, flush=True)
 
         # Elements rendering
+        buf = [header]
+
         for idx, element in enumerate(page.elements):
             if show_index:
                 index = f"{idx+1:2}: "
@@ -394,9 +406,9 @@ class UI:
             else:
                 element_name = element.label
 
-            print(
-                f"{padding}{color(element_color)}{index}{element_name}{color()}", flush=True
-            )
+            buf.append(
+                f"{padding}{color(element_color)}{index}{element_name}{color()}")
+        self._print(buf, sep='\n', end='')
 
     # todo backspace
     def handle_navigation_key(self, key):
@@ -470,7 +482,9 @@ class UI:
         if not self.current_page:
             return None
 
-        print(cursor, end='', flush=True)
+        # buf = [cursor]
+
+        self._print(cursor, end='')
         key = get_keypress()
 
         # navigation mode
@@ -479,17 +493,22 @@ class UI:
                 self.handle_navigation_key(key)
                 return
             if not key.isnumeric():  # only numeric input is allowed
+                key = ''
                 return
         else:  # not navigation mode
             if key in ['up', 'down', 'left', 'right', '\r']:  # handle only arrows and enter
                 self.handle_navigation_key(key)
+                key = ''
                 return
 
         # backspace pressed
         if key == '\x08':
             key = ''
 
-        print(key, end='', flush=True)
+        # print(key, end='', flush=True)
+        # buf.append(key)
+        if key:
+            self._print(key, end='', sep='')
 
         user_input = key + input()  # todo rework this
 
@@ -557,6 +576,16 @@ class UI:
         def append_element(self, name: str, command=None, params=None, color=Style.REGULAR, alignment='left') -> '_Element':
             # add element when chaining
             return self.add_element(name, command, params, color, alignment)
+
+        def delete_element(self, element: Union[str, 'UI._Page._Element', int]):
+            if isinstance(element, int):
+                self.elements.pop(element)
+            elif isinstance(element, UI._Page._Element):
+                self.elements.remove(element)
+            elif isinstance(element, str):
+                for idx, elem in enumerate(self.elements):
+                    if elem.label == element:
+                        self.elements.pop(idx)
 
         class _Element:
             def __call__(self) -> None:
