@@ -2,7 +2,7 @@ from enum import IntEnum
 import os
 import signal
 import sys
-from typing import Iterable, Union
+from typing import Iterable, Literal, Union
 
 
 class Style(IntEnum):
@@ -110,7 +110,7 @@ def color(style: Union[Style, CombinedStyle] = None) -> str:
     return f"\033[{';'.join(codes)}m"
 
 
-def cls():
+def cls() -> None:
     '''clears console depending on the platform'''
     if os.name == "nt":
         os.system("cls")
@@ -122,7 +122,7 @@ def cls():
 if os.name == 'nt':
     import msvcrt
 
-    def get_keypress():
+    def get_keypress() -> Union[Literal['up', 'down', 'left', 'right'], None]:
         key = msvcrt.getch()
 
         # ctrl + c
@@ -147,7 +147,7 @@ else:
     import termios
     import tty
 
-    def get_keypress():
+    def get_keypress() -> Union[Literal['up', 'down', 'left', 'right'], None]:
         fd = sys.stdin.fileno()
         old_settings = termios.tcgetattr(fd)
         try:
@@ -225,7 +225,7 @@ class UI:
             self._current_page_index = idx
             self._current_page = self.pages[idx]
 
-    def find_element(self, element_name: str):
+    def find_element(self, element_name: str) -> 'UI._Page._Element':
         """
         iterates through all pages to find element by name.
 
@@ -245,7 +245,7 @@ class UI:
 
     def goto(self, page: "UI._Page") -> None:
         """
-        switch current page to page if it is present in the UI.
+        switch current page to `page` if it is present in the UI.
 
         Parameters:
             page (_Page): a page object that you want to switch UI to.
@@ -279,7 +279,7 @@ class UI:
             raise TypeError("page must be a Page instance or string name")
 
     # todo debug
-    def rename(self, to: str = "Untitled UI"):
+    def rename(self, to: str = "Untitled UI") -> None:
         """
         rename UI.
 
@@ -411,7 +411,7 @@ class UI:
         self._print(buf, sep='\n', end='')
 
     # todo backspace
-    def handle_navigation_key(self, key):
+    def handle_navigation_key(self, key: str) -> Union[str, 'UI._Page._Element']:
         """
         Handles w/a/s/d/enter and arrow keys.
         W - element selection up \n
@@ -471,13 +471,13 @@ class UI:
                 current_page.selected_element = current_page.elements[next_element_index]
         return key
 
-    def ask_input(self, navigation_mode=True, cursor='>>> ') -> int | str:
+    def ask_input(self, navigation_mode: bool = True, cursor='>>> ') -> Union[str, int]:
         """ 
         Prompts number input, returns it. \n
         Parameters:
             navigation_mode (bool): if True, handle w/a/s/d with `handle_navigation_key`, allowing only numeric input. If False, string input is allowed, arrow keys and enter are still handled.
         Returns:
-
+            Union[int,str]: int or str depending on navigation_mode
         """
         if not self.current_page:
             return None
@@ -561,7 +561,7 @@ class UI:
                 return
             self._selected_element = element
 
-        def rename(self, to: str = "Untitled page"):
+        def rename(self, to: str = "Untitled page") -> None:
             "Renames itself to `to`"
             self.label = to
 
@@ -577,7 +577,7 @@ class UI:
             # add element when chaining
             return self.add_element(name, command, params, color, alignment)
 
-        def delete_element(self, element: Union[str, 'UI._Page._Element', int]):
+        def delete_element(self, element: Union[str, 'UI._Page._Element', int]) -> None:
             if isinstance(element, int):
                 self.elements.pop(element)
             elif isinstance(element, UI._Page._Element):
@@ -634,7 +634,7 @@ class UI:
                 #         self)].label = to
                 self.label = to
 
-            def get_padding(self, offset=0):
+            def get_padding(self, offset=0) -> str:
                 "get terminal width and return element's padding according to its alignment"
                 width, _ = os.get_terminal_size(sys.stdout.fileno())
 
